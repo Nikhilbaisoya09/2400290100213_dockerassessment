@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FestPass Registration</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 650px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #f4f6f9;
+        }
+
+        .card {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px #ddd;
+        }
+
+        input, button {
+            box-sizing: border-box;
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0;
+        }
+
+        button {
+            cursor: pointer;
+            background: #1769aa;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+
+        #message {
+            margin: 12px 0;
+        }
+
+        li {
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>FestPass Registration</h1>
+        <p>Register for the event using your name and email.</p>
+
+        <form id="registrationForm">
+            <input id="name" type="text" placeholder="Enter your name" required>
+            <input id="email" type="email" placeholder="Enter your email" required>
+            <button type="submit">Register</button>
+        </form>
+
+        <p id="message"></p>
+
+        <h2>Registrations</h2>
+        <button id="refreshButton" type="button">Refresh Registrations</button>
+        <ul id="registrations"></ul>
+
+        <h3>Application Health</h3>
+        <p id="health">Checking...</p>
+    </div>
+
+    <script>
+        const message = document.getElementById("message");
+
+        async function checkHealth() {
+            try {
+                const response = await fetch("/api/health");
+                const data = await response.json();
+
+                document.getElementById("health").textContent =
+                    "Status: " + data.status +
+                    " | Database connected: " + data.database_connected +
+                    " | Version: " + data.app_version;
+            } catch (error) {
+                document.getElementById("health").textContent =
+                    "Unable to connect to backend";
+            }
+        }
+
+        async function loadRegistrations() {
+            const list = document.getElementById("registrations");
+            list.replaceChildren();
+
+            try {
+                const response = await fetch("/api/registrations");
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || "Could not load registrations");
+                }
+
+                data.forEach(registration => {
+                    const item = document.createElement("li");
+                    item.textContent =
+                        registration.name + " (" + registration.email + ")";
+                    list.appendChild(item);
+                });
+            } catch (error) {
+                message.textContent = error.message;
+            }
+        }
+
+        document.getElementById("registrationForm").addEventListener(
+            "submit",
+            async event => {
+                event.preventDefault();
+
+                const name = document.getElementById("name").value;
+                const email = document.getElementById("email").value;
+
+                try {
+                    const response = await fetch("/api/registrations", {
+                        method: "POST",
+                        headers: {"Content-Type": "application/json"},
+                        body: JSON.stringify({name, email})
+                    });
+
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                        throw new Error(data.error || "Registration failed");
+                    }
+
+                    message.textContent = data.message;
+                    event.target.reset();
+                    await loadRegistrations();
+                } catch (error) {
+                    message.textContent = error.message;
+                }
+            }
+        );
+
+        document.getElementById("refreshButton").addEventListener(
+            "click", loadRegistrations
+        );
+
+        checkHealth();
+        loadRegistrations();
+    </script>
+</body>
+</html>
